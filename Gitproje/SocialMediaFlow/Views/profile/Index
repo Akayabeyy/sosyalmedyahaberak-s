@@ -1,0 +1,28 @@
+<!-- Update post form in Index.cshtml -->
+<form id="postForm" enctype="multipart/form-data">
+    <textarea id="postContent" class="form-control mb-2" rows="3"></textarea>
+    <input type="file" id="mediaFile" class="form-control mb-2" accept="image/*,video/*">
+    <button type="submit" class="btn btn-primary">Post</button>
+</form>
+
+<script>
+    document.getElementById('postForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        formData.append('Content', document.getElementById('postContent').value);
+        formData.append('UserId', userId);
+        formData.append('MediaFile', document.getElementById('mediaFile').files[0]);
+        
+        const response = await fetch('/api/posts', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            document.getElementById('postContent').value = '';
+            document.getElementById('mediaFile').value = '';
+            loadFeed();
+        }
+    });
+</script>

@@ -1,0 +1,91 @@
+[ApiController]
+[Route("api/[controller]")]
+public class SearchController : ControllerBase
+{
+    private readonly AppDbContext _context;
+    private readonly UserManager<User> _userManager;
+
+    public SearchController(AppDbContext context, UserManager<User> userManager)
+    {
+        _context = context;
+        _userManager = userManager;
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<SearchResult>> Search(
+        [FromQuery] string query, 
+        [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 10)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return BadRequest("Search query is required");
+
+        var currentUserId = _userManager.GetUserId(User);
+        var searchResult = new SearchResult
+        {
+            CurrentPage = page,
+            PageSize = pageSize
+        };
+
+        // User search
+        var usersQuery = _context.Users
+            .Where(u => u.UserName.Contains(query) || 
+                       u.DisplayName.Contains(query) || 
+                       u.Bio.Contains(query));
+
+        searchResult.TotalResults = await usersQuery.CountAsync();
+
+        searchResult.Users = await usersQuery
+            .OrderByDescending(u => u.Followers.Count)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(u => new UserResult
+            {
+                Id = u.Id,
+                Username = u.UserName,
+                DisplayName = u.DisplayName,
+                ProfilePictureUrl = u.ProfilePictureUrl,
+                Bio = u.Bio,
+                FollowerCount = u.Followers.Count,
+                IsFollowing = currentUserId != null && 
+                    u.Followers.Any(f => f.FollowerId == int.Parse(currentUserId))
+            })
+            .ToListAsync();
+
+        // Post search
+        var postsQuery = _context.Posts
+            .Where(p => p.Content.Contains(query))
+            .Include(p => p.User)
+            .Include(p => p.Likes)
+            .Include(p => p.Comments);
+
+        searchResult.Posts = await postsQuery
+            .OrderByDescending(p => p.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(p => new PostResult
+            {
+                Id = p.Id,
+                Content = p.Content,
+                CreatedAt = p.CreatedAt,
+                MediaUrl = p.MediaUrl,
+                MediaType = p.MediaType,
+                LikeCount = p.Likes.Count,
+                CommentCount = p.Comments.Count,
+                Author = new UserResult
+                {
+                    Id = p.User.Id,
+                    Username = p.User.UserName,
+                    DisplayName = p.User.DisplayName,
+                    ProfilePictureUrl = p.User.ProfilePictureUrl
+                },
+                IsLiked = currentUserId != null && 
+                    p.Likes.Any(l => l.UserId == int.Parse(currentUserId))
+            })
+            .ToListAsync();
+
+        searchResult.TotalPages = (int)Math.Ceiling(searchResult.TotalResults / (double)pageSize);
+
+        return Ok(searchResult);
+    }
+}

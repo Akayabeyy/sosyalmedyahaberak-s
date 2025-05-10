@@ -1,0 +1,8 @@
+// Hubs/FeedHub.cs
+public class FeedHub : Hub
+{
+    public async Task JoinFeedGroup(string userId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"user-{userId}");
+    }
+}

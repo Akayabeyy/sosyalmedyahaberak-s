@@ -1,0 +1,14 @@
+public class RelationshipDto
+{
+    public string UserId { get; set; }
+    public RelationshipStatus Status { get; set; } // Following, Pending, Blocked, etc.
+}
+
+public class UpdateRelationshipDto
+{
+    [Required]
+    public string TargetUserId { get; set; }
+    
+    [Required]
+    public RelationshipAction Action { get; set; } // Follow, Unfollow, Block, etc.
+}

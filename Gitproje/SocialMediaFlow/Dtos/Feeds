@@ -1,0 +1,15 @@
+public class FeedRequestDto
+{
+    [Range(1, 100)]
+    public int PageSize { get; set; } = 10;
+    
+    public DateTime? Before { get; set; } // For pagination
+    public string[] FollowingIds { get; set; }
+}
+
+public class SearchResultDto
+{
+    public UserSearchResultDto[] Users { get; set; }
+    public PostDto[] Posts { get; set; }
+    public int TotalResults { get; set; }
+}

@@ -1,0 +1,25 @@
+<!-- Views/Shared/_Layout.cshtml -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SocialMediaFlow</title>
+    <!-- Include all necessary CSS and JS links -->
+</head>
+<body data-user-id="@User.FindFirstValue(ClaimTypes.NameIdentifier)">
+  <!-- Add to navbar -->
+<form class="d-flex ms-3" asp-controller="Search" asp-action="Index" method="get">
+    <div class="input-group">
+        <input class="form-control" type="search" name="query" placeholder="Search..." required>
+        <button class="btn btn-outline-light" type="submit">
+            <i class="fas fa-search"></i>
+        </button>
+    </div>
+</form>
+<!-- Required elements with matching IDs -->
+  <script src="~/js/site.js" asp-append-version="true"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</body>
+</html>

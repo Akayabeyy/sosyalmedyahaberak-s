@@ -1,0 +1,211 @@
+@model SearchResult
+@{
+    ViewData["Title"] = "Search Results";
+    Layout = "_Layout";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4>Search Results for "@Context.Request.Query["query"]"</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Users Results -->
+                    @if (Model.UsersCount > 0)
+                    {
+                        <div class="mb-4">
+                            <h5>Users (@Model.UsersCount)</h5>
+                            <div class="list-group">
+                                @foreach (var user in Model.Users)
+                                {
+                                    <div class="list-group-item">
+                                        <div class="d-flex align-items-center">
+                                            <img src="@user.ProfilePictureUrl ?? "/images/default-profile.png"" 
+                                                 class="rounded-circle me-3" width="50" height="50">
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-0">@user.DisplayName</h6>
+                                                <small class="text-muted">@@@user.Username</small>
+                                                <p class="mb-0 small">@user.Bio</p>
+                                            </div>
+                                            <div>
+                                                @if (user.IsFollowing)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-secondary follow-btn" 
+                                                            data-user-id="@user.Id" data-is-following="true">
+                                                        Following
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-sm btn-primary follow-btn" 
+                                                            data-user-id="@user.Id" data-is-following="false">
+                                                        Follow
+                                                    </button>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Posts Results -->
+                    @if (Model.PostsCount > 0)
+                    {
+                        <div class="mb-4">
+                            <h5>Posts (@Model.PostsCount)</h5>
+                            <div class="posts-container">
+                                @foreach (var post in Model.Posts)
+                                {
+                                    <div class="card mb-3 post-card">
+                                        <div class="card-body">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <img src="@post.Author.ProfilePictureUrl ?? "/images/default-profile.png"" 
+                                                     class="rounded-circle me-2" width="32" height="32">
+                                                <h6 class="card-title mb-0">@post.Author.DisplayName</h6>
+                                            </div>
+                                            <p class="card-text">@post.Content</p>
+                                            @if (!string.IsNullOrEmpty(post.MediaUrl))
+                                            {
+                                                @if (post.MediaType == MediaType.Image)
+                                                {
+                                                    <img src="@post.MediaUrl" class="img-fluid mb-2" alt="Post image">
+                                                }
+                                                else if (post.MediaType == MediaType.Video)
+                                                {
+                                                    <video controls class="img-fluid mb-2">
+                                                        <source src="@post.MediaUrl" type="video/mp4">
+                                                    </video>
+                                                }
+                                            }
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <small class="text-muted">@post.CreatedAt.ToString("g")</small>
+                                                <div>
+                                                    <button class="btn btn-sm @(post.IsLiked ? "btn-danger" : "btn-outline-secondary") like-btn" 
+                                                            data-post-id="@post.Id">
+                                                        <i class="fas fa-heart"></i> @post.LikeCount
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (Model.UsersCount == 0 && Model.PostsCount == 0)
+                    {
+                        <div class="alert alert-info">
+                            No results found for "@Context.Request.Query["query"]"
+                        </div>
+                    }
+
+                    <!-- Pagination -->
+                    @if (Model.TotalPages > 1)
+                    {
+                        <nav aria-label="Search results pagination">
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item @(Model.CurrentPage == 1 ? "disabled" : "")">
+                                    <a class="page-link" 
+                                       href="@Url.Action("Index", new { query = Context.Request.Query["query"], page = Model.CurrentPage - 1 })">
+                                        Previous
+                                    </a>
+                                </li>
+                                @for (int i = 1; i <= Model.TotalPages; i++)
+                                {
+                                    <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                                        <a class="page-link" 
+                                           href="@Url.Action("Index", new { query = Context.Request.Query["query"], page = i })">
+                                            @i
+                                        </a>
+                                    </li>
+                                }
+                                <li class="page-item @(Model.CurrentPage == Model.TotalPages ? "disabled" : "")">
+                                    <a class="page-link" 
+                                       href="@Url.Action("Index", new { query = Context.Request.Query["query"], page = Model.CurrentPage + 1 })">
+                                        Next
+                                    </a>
+                                </li>
+                            </ul>
+                        </nav>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Handle follow/unfollow actions
+        document.querySelectorAll('.follow-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const userId = this.dataset.userId;
+                const isFollowing = this.dataset.isFollowing === 'true';
+                
+                try {
+                    const response = await fetch('/api/users/' + (isFollowing ? 'unfollow' : 'follow'), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                        },
+                        body: JSON.stringify({ userId })
+                    });
+                    
+                    if (response.ok) {
+                        this.dataset.isFollowing = !isFollowing;
+                        if (isFollowing) {
+                            this.classList.remove('btn-outline-secondary');
+                            this.classList.add('btn-primary');
+                            this.textContent = 'Follow';
+                        } else {
+                            this.classList.remove('btn-primary');
+                            this.classList.add('btn-outline-secondary');
+                            this.textContent = 'Following';
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
+
+        // Handle like/unlike actions
+        document.querySelectorAll('.like-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const postId = this.dataset.postId;
+                const isLiked = this.classList.contains('btn-danger');
+                
+                try {
+                    const response = await fetch('/api/posts/' + postId + '/like', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const likeCount = parseInt(this.textContent.match(/\d+/)[0]);
+                        if (isLiked) {
+                            this.classList.remove('btn-danger');
+                            this.classList.add('btn-outline-secondary');
+                            this.innerHTML = `<i class="fas fa-heart"></i> ${likeCount - 1}`;
+                        } else {
+                            this.classList.remove('btn-outline-secondary');
+                            this.classList.add('btn-danger');
+                            this.innerHTML = `<i class="fas fa-heart"></i> ${likeCount + 1}`;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
+    </script>
+}

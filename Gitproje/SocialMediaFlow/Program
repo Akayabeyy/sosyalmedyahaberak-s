@@ -1,0 +1,39 @@
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddIdentity<User, IdentityRole<int>>()
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddDefaultTokenProviders();
+
+builder.Services.AddSignalR();
+builder.Services.AddScoped<MediaService>();
+
+// Configure middleware
+var app = builder.Build();
+
+app.UseStaticFiles();
+app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapHub<FeedHub>("/feedHub");
+app.MapControllers();
+app.MapRazorPages();
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var context = services.GetRequiredService<AppDbContext>();
+    context.Database.Migrate();
+}
+builder.Services.AddTransient<IEmailSender, EmailSender>();
+
+builder.Services.Configure<IdentityOptions>(options =>
+{
+    options.SignIn.RequireConfirmedEmail = true;
+});
+
+app.Run();
