@@ -1,0 +1,65 @@
+[HttpPost]
+[ValidateAntiForgeryToken]
+public async Task<IActionResult> Register(RegisterViewModel model, string returnUrl = null)
+{
+    ViewData["ReturnUrl"] = returnUrl;
+    if (ModelState.IsValid)
+    {
+        // Handle profile picture upload
+        string profilePictureUrl = null;
+        if (model.ProfilePicture != null && model.ProfilePicture.Length > 0)
+        {
+            var uploadsFolder = Path.Combine(_environment.WebRootPath, "uploads/profile-pictures");
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            var uniqueFileName = Guid.NewGuid().ToString() + "_" + model.ProfilePicture.FileName;
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+            
+            using (var fileStream = new FileStream(filePath, FileMode.Create))
+            {
+                await model.ProfilePicture.CopyToAsync(fileStream);
+            }
+
+            profilePictureUrl = $"/uploads/profile-pictures/{uniqueFileName}";
+        }
+
+        var user = new User 
+        { 
+            UserName = model.Username,
+            Email = model.Email,
+            DisplayName = model.DisplayName,
+            ProfilePictureUrl = profilePictureUrl,
+            EmailConfirmed = false // Email is not confirmed yet
+        };
+        
+        var result = await _userManager.CreateAsync(user, model.Password);
+        
+        if (result.Succeeded)
+        {
+            // Generate email confirmation token
+            var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            var callbackUrl = Url.Action(
+                "ConfirmEmail",
+                "Account",
+                new { userId = user.Id, code = code },
+                protocol: Request.Scheme);
+
+            // Send email
+            await _emailSender.SendEmailAsync(
+                model.Email,
+                "Confirm your email",
+                $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
+
+            return RedirectToAction("EmailConfirmationSent");
+        }
+        
+        foreach (var error in result.Errors)
+        {
+            ModelState.AddModelError(string.Empty, error.Description);
+        }
+    }
+    return View(model);
+}

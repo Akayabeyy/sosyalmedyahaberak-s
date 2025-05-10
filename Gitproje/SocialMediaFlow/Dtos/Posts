@@ -1,0 +1,42 @@
+// Post Creation
+public class CreatePostDto
+{
+    [Required]
+    [StringLength(2000)]
+    public string Content { get; set; }
+
+    public IFormFile[] MediaFiles { get; set; }
+    public string[] Tags { get; set; }
+}
+
+// Post Response
+public class PostDto
+{
+    public string Id { get; set; }
+    public string Content { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public UserProfileDto Author { get; set; }
+    public MediaDto[] Media { get; set; }
+    public int LikeCount { get; set; }
+    public int CommentCount { get; set; }
+    public bool IsLiked { get; set; }
+    public string[] Tags { get; set; }
+}
+
+// Media Attachment
+public class MediaDto
+{
+    public string Url { get; set; }
+    public MediaType Type { get; set; } // Enum: Image, Video, etc.
+    public string ThumbnailUrl { get; set; }
+}
+
+// Post Update
+public class UpdatePostDto
+{
+    [StringLength(2000)]
+    public string Content { get; set; }
+    
+    public string[] TagsToAdd { get; set; }
+    public string[] TagsToRemove { get; set; }
+}

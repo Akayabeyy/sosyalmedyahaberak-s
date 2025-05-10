@@ -1,0 +1,117 @@
+[ApiController]
+[Route("api/[controller]")]
+public class PostsController : ControllerBase
+{
+    private readonly AppDbContext _context;
+    private readonly IHubContext<FeedHub> _hubContext;
+    private readonly MediaService _mediaService;
+
+    public PostsController(
+        AppDbContext context, 
+        IHubContext<FeedHub> hubContext,
+        MediaService mediaService)
+    {
+        _context = context;
+        _hubContext = hubContext;
+        _mediaService = mediaService;
+    }
+
+    [HttpGet("feed")]
+    public async Task<ActionResult<IEnumerable<Post>>> GetFeed(int userId, int page = 1, int pageSize = 10)
+    {
+        var followingIds = await _context.UserFollows
+            .Where(uf => uf.FollowerId == userId)
+            .Select(uf => uf.FollowedId)
+            .ToListAsync();
+
+        followingIds.Add(userId);
+
+        var totalPosts = await _context.Posts
+            .CountAsync(p => followingIds.Contains(p.UserId));
+
+        var posts = await _context.Posts
+            .Where(p => followingIds.Contains(p.UserId))
+            .Include(p => p.User)
+            .Include(p => p.Likes)
+            .Include(p => p.Comments)
+            .OrderByDescending(p => p.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        Response.Headers.Add("X-Pagination", JsonSerializer.Serialize(new
+        {
+            TotalCount = totalPosts,
+            PageSize = pageSize,
+            CurrentPage = page,
+            TotalPages = (int)Math.Ceiling(totalPosts / (double)pageSize)
+        }));
+
+        return Ok(posts);
+    }
+
+    [HttpPost]
+    [Authorize]
+    public async Task<ActionResult<Post>> CreatePost([FromForm] PostCreateDto postDto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+        
+        string mediaUrl = null;
+        MediaType mediaType = MediaType.None;
+
+        if (postDto.MediaFile != null)
+        {
+            mediaUrl = await _mediaService.SaveMediaAsync(postDto.MediaFile);
+            mediaType = _mediaService.GetMediaType(postDto.MediaFile.FileName);
+        }
+
+        var post = new Post
+        {
+            Content = postDto.Content,
+            UserId = userId,
+            MediaUrl = mediaUrl,
+            MediaType = mediaType,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Posts.Add(post);
+        await _context.SaveChangesAsync();
+
+        // Notify followers
+        var followers = await _context.UserFollows
+            .Where(uf => uf.FollowedId == userId)
+            .Select(uf => uf.FollowerId.ToString())
+            .ToListAsync();
+
+        await _hubContext.Clients.Groups(followers.Select(f => $"user-{f}")).SendAsync("ReceiveNewPost", post);
+
+        return CreatedAtAction(nameof(GetFeed), post);
+    }
+
+    [HttpPost("{postId}/like")]
+    [Authorize]
+    public async Task<IActionResult> LikePost(int postId)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+        
+        var existingLike = await _context.Likes
+            .FirstOrDefaultAsync(l => l.PostId == postId && l.UserId == userId);
+
+        if (existingLike == null)
+        {
+            _context.Likes.Add(new Like
+            {
+                PostId = postId,
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            _context.Likes.Remove(existingLike);
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok();
+    }
+}

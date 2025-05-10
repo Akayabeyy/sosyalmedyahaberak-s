@@ -1,0 +1,43 @@
+// Services/MediaService.cs
+public class MediaService
+{
+    private readonly IWebHostEnvironment _environment;
+    private readonly IConfiguration _configuration;
+
+    public MediaService(IWebHostEnvironment environment, IConfiguration configuration)
+    {
+        _environment = environment;
+        _configuration = configuration;
+    }
+
+    public async Task<string> SaveMediaAsync(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return null;
+
+        var uploadsFolder = Path.Combine(_environment.WebRootPath, "uploads");
+        if (!Directory.Exists(uploadsFolder))
+            Directory.CreateDirectory(uploadsFolder);
+
+        var uniqueFileName = Guid.NewGuid().ToString() + "_" + file.FileName;
+        var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        return $"/uploads/{uniqueFileName}";
+    }
+
+    public MediaType GetMediaType(string fileName)
+    {
+        var extension = Path.GetExtension(fileName).ToLower();
+        return extension switch
+        {
+            ".jpg" or ".jpeg" or ".png" or ".gif" => MediaType.Image,
+            ".mp4" or ".mov" or ".avi" => MediaType.Video,
+            _ => MediaType.None
+        };
+    }
+}

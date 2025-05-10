@@ -1,0 +1,92 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=SocialMediaFlow;Trusted_Connection=True;MultipleActiveResultSets=true",
+    "Redis": "localhost:6379"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft": "Warning",
+      "Microsoft.Hosting.Lifetime": "Information",
+      "Microsoft.EntityFrameworkCore": "Information"
+    },
+    "File": {
+      "Path": "Logs/socialmediaflow-{Date}.log",
+      "FileSizeLimitBytes": 10485760,
+      "RetainedFileCountLimit": 5
+    }
+  },
+  "AllowedHosts": "*",
+  "JwtSettings": {
+    "Secret": "your-256-bit-secret-key-change-this-for-production",
+    "Issuer": "SocialMediaFlow",
+    "Audience": "SocialMediaFlowUsers",
+    "ExpiryInMinutes": 1440,
+    "RefreshTokenExpiryInDays": 7
+  },
+  "EmailSettings": {
+    "Provider": "SendGrid", 
+    "FromName": "SocialMediaFlow",
+    "FromAddress": "noreply@socialmediaflow.com",
+    "SendGrid": {
+      "ApiKey": "your-sendgrid-api-key",
+      "SandboxMode": true
+    },
+    "Smtp": {
+      "Host": "smtp.example.com",
+      "Port": 587,
+      "Username": "your-username",
+      "Password": "your-password",
+      "EnableSsl": true
+    }
+  },
+  "FileStorage": {
+    "Provider": "Local", 
+    "Local": {
+      "UploadPath": "wwwroot/uploads",
+      "MaxFileSizeMB": 100,
+      "AllowedExtensions": [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".mov"]
+    },
+    "AzureBlob": {
+      "ConnectionString": "your-azure-storage-connection-string",
+      "ContainerName": "useruploads"
+    },
+    "AWS": {
+      "AccessKeyId": "your-aws-access-key",
+      "SecretAccessKey": "your-aws-secret-key",
+      "BucketName": "socialmedia-uploads",
+      "Region": "us-east-1"
+    }
+  },
+  "SignalR": {
+    "EnableDetailedErrors": true,
+    "ClientTimeoutInterval": 30,
+    "KeepAliveInterval": 15,
+    "RedisBackplane": false
+  },
+  "Cors": {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://yourdomain.com"
+    ],
+    "AllowedMethods": ["GET", "POST", "PUT", "DELETE"],
+    "AllowedHeaders": ["Content-Type", "Authorization"]
+  },
+  "RateLimiting": {
+    "Enable": true,
+    "PerIpLimit": 100,
+    "PerIpPeriodInMinutes": 1,
+    "ApiEndpointLimit": 1000,
+    "ApiEndpointPeriodInMinutes": 5
+  },
+  "ClientApp": {
+    "BaseUrl": "http://localhost:3000",
+    "EmailConfirmationPath": "/confirm-email",
+    "PasswordResetPath": "/reset-password"
+  },
+  "ApplicationInsights": {
+    "InstrumentationKey": "your-instrumentation-key",
+    "EnableAdaptiveSampling": true,
+    "EnablePerformanceCounters": true
+  }
+}

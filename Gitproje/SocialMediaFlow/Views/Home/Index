@@ -1,0 +1,107 @@
+@{
+    ViewData["Title"] = "Social Media Feed";
+}
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Your Feed</h2>
+            <div id="feed" class="mt-3">
+                <!-- Posts will be loaded here -->
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Create Post</h5>
+                    <textarea id="postContent" class="form-control mb-2" rows="3"></textarea>
+                    <button id="postButton" class="btn btn-primary">Post</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Add to Views/Home/Index.cshtml
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/feedHub")
+    .configureLogging(signalR.LogLevel.Information)
+    .build();
+
+connection.on("ReceiveNewPost", (post) => {
+    // Prepend new post to feed
+    const feedContainer = document.getElementById('feed');
+    const postElement = createPostElement(post);
+    feedContainer.insertBefore(postElement, feedContainer.firstChild);
+});
+
+async function startConnection() {
+    try {
+        await connection.start();
+        console.log("SignalR Connected.");
+        await connection.invoke("JoinFeedGroup", userId);
+    } catch (err) {
+        console.log(err);
+        setTimeout(startConnection, 5000);
+    }
+};
+
+startConnection();
+        const userId = 1; // In a real app, this would come from authentication
+        
+        // Load feed
+        async function loadFeed() {
+            const response = await fetch(`/api/posts/feed?userId=${userId}`);
+            const posts = await response.json();
+            
+            const feedContainer = document.getElementById('feed');
+            feedContainer.innerHTML = '';
+            
+            posts.forEach(post => {
+                const postElement = document.createElement('div');
+                postElement.className = 'card mb-3';
+                postElement.innerHTML = `
+                    <div class="card-body">
+                        <h5 class="card-title">${post.user.username}</h5>
+                        <p class="card-text">${post.content}</p>
+                        <small class="text-muted">${new Date(post.createdAt).toLocaleString()}</small>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-outline-primary like-btn" data-post-id="${post.id}">
+                                Like (${post.likes.length})
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary comment-btn" data-post-id="${post.id}">
+                                Comment (${post.comments.length})
+                            </button>
+                        </div>
+                    </div>
+                `;
+                feedContainer.appendChild(postElement);
+            });
+        }
+        
+        // Create post
+        document.getElementById('postButton').addEventListener('click', async () => {
+            const content = document.getElementById('postContent').value;
+            if (!content) return;
+            
+            const response = await fetch('/api/posts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content: content,
+                    userId: userId
+                })
+            });
+            
+            if (response.ok) {
+                document.getElementById('postContent').value = '';
+                loadFeed();
+            }
+        });
+        
+        // Initial load
+        loadFeed();
+    </script>
+}

@@ -1,0 +1,9 @@
+public class NotificationDto
+{
+    public string Id { get; set; }
+    public string Type { get; set; } // "Like", "Comment", "Follow", etc.
+    public DateTime CreatedAt { get; set; }
+    public bool IsRead { get; set; }
+    public UserProfileDto FromUser { get; set; }
+    public PostDto RelatedPost { get; set; } // Null for follow notifications
+}

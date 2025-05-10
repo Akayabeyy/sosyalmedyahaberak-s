@@ -1,0 +1,11 @@
+@{
+    ViewData["Title"] = "Email Confirmation Sent";
+    Layout = "_Layout";
+}
+
+<div class="alert alert-success" role="alert">
+    <h4 class="alert-heading">Email confirmation sent!</h4>
+    <p>Please check your email and confirm your account to complete registration.</p>
+    <hr>
+    <p class="mb-0">Didn't receive the email? <a asp-action="ResendEmailConfirmation">Resend confirmation email</a></p>
+</div>
