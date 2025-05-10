@@ -1,1 +1,30 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using MicroTweet.Models;
 
+namespace MicroTweet;
+
+public class ApplicationDbContext : IdentityDbContext<User>
+{
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+        : base(options)
+    {
+    }
+    
+    public DbSet<Tweet> Tweets { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+        
+        builder.Entity<User>()
+            .HasMany(u => u.Followers)
+            .WithMany(u => u.Following)
+            .UsingEntity<Dictionary<string, object>>(
+                "UserFollowers",
+                j => j.HasOne<User>().WithMany().HasForeignKey("FollowerId"),
+                j => j.HasOne<User>().WithMany().HasForeignKey("FollowingId"),
+                j => j.ToTable("UserFollowers"));
+    }
+}
