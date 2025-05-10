@@ -1,0 +1,122 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using MicroTweet.Data;
+using MicroTweet.Dtos;
+using MicroTweet.Hubs;
+using MicroTweet.Models;
+
+namespace MicroTweet.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class TweetsController : ControllerBase
+{
+    private readonly ApplicationDbContext _context;
+    private readonly UserManager<User> _userManager;
+    private readonly IHubContext<NotificationHub> _hubContext;
+
+    public TweetsController(
+        ApplicationDbContext context, 
+        UserManager<User> userManager,
+        IHubContext<NotificationHub> hubContext)
+    {
+        _context = context;
+        _userManager = userManager;
+        _hubContext = hubContext;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateTweet([FromBody] CreateTweetDto dto)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        
+        var tweet = new Tweet
+        {
+            Content = dto.Content,
+            UserId = user.Id,
+            ParentTweetId = dto.ParentTweetId
+        };
+
+        _context.Tweets.Add(tweet);
+        await _context.SaveChangesAsync();
+
+        await NotifyFollowers(user.Id, tweet.Id, "tweet");
+
+        return Ok(tweet);
+    }
+
+    [HttpGet("timeline")]
+    public async Task<IActionResult> GetTimeline([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        
+        var followingIds = await _context.UserFollowers
+            .Where(uf => uf.FollowerId == user.Id)
+            .Select(uf => uf.FollowingId)
+            .ToListAsync();
+
+        followingIds.Add(user.Id);
+
+        var tweets = await _context.Tweets
+            .Where(t => followingIds.Contains(t.UserId) && t.ParentTweetId == null)
+            .Include(t => t.User)
+            .OrderByDescending(t => t.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return Ok(tweets);
+    }
+
+    [HttpPost("{tweetId}/like")]
+    public async Task<IActionResult> LikeTweet(int tweetId)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        var tweet = await _context.Tweets.FindAsync(tweetId);
+
+        if (tweet == null) return NotFound();
+
+        tweet.LikeCount++;
+        await _context.SaveChangesAsync();
+
+        if (user.Id != tweet.UserId)
+        {
+            await SendNotification(tweet.UserId, user.Id, tweetId, "like");
+        }
+
+        return Ok(new { likeCount = tweet.LikeCount });
+    }
+
+    private async Task SendNotification(string receiverId, string senderId, int? tweetId, string type)
+    {
+        var notification = new Notification
+        {
+            Type = type,
+            SenderUserId = senderId,
+            ReceiverUserId = receiverId,
+            TweetId = tweetId
+        };
+
+        _context.Notifications.Add(notification);
+        await _context.SaveChangesAsync();
+
+        await _hubContext.Clients.User(receiverId).SendAsync("ReceiveNotification", notification);
+    }
+
+    private async Task NotifyFollowers(string userId, int tweetId, string type)
+    {
+        var followers = await _context.UserFollowers
+            .Where(uf => uf.FollowingId == userId)
+            .Select(uf => uf.FollowerId)
+            .ToListAsync();
+
+        foreach (var followerId in followers)
+        {
+            await SendNotification(followerId, userId, tweetId, type);
+        }
+    }
+}
